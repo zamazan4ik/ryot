@@ -15,6 +15,7 @@ import {
 	Stack,
 	Text,
 	Title,
+	useComputedColorScheme,
 	useMantineTheme,
 } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
@@ -627,6 +628,7 @@ const ApexChart = lazy(async () => {
 
 const ActivitySection = () => {
 	const { ref, inViewport } = useInViewport();
+	const colorScheme = useComputedColorScheme();
 	const [chartType, setChartType] = useLocalStorage<"heatmap" | "bar_chart">(
 		"ActivitySectionChartType",
 		"heatmap",
@@ -777,7 +779,10 @@ const ActivitySection = () => {
 												data: generateData(20, { min: -30, max: 55 }),
 											},
 										]}
-										options={{ chart: { toolbar: false } }}
+										options={{
+											chart: { toolbar: false },
+											tooltip: { theme: colorScheme },
+										}}
 										type="heatmap"
 										height="100%"
 									/>
