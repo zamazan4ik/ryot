@@ -48,6 +48,7 @@ import {
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
+import { lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, type ReactNode, useMemo } from "react";
 import { $path } from "remix-routes";
@@ -619,6 +620,11 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 	);
 };
 
+const ApexChart = lazy(async () => {
+	const module = await import("react-apexcharts");
+	return { default: module.default };
+});
+
 const ActivitySection = () => {
 	const { ref, inViewport } = useInViewport();
 	const [timeSpan, setTimeSpan] = useLocalStorage(
@@ -706,6 +712,28 @@ const ActivitySection = () => {
 					}}
 				/>
 			</SimpleGrid>
+			<Suspense>
+				<ApexChart
+					series={[
+						{
+							name: "series-1",
+							data: [30, 40, 45, 50, 49, 60, 70, 91],
+						},
+					]}
+					options={{
+						// chart: {
+						// 	id: "apexchart-example",
+						// },
+						xaxis: {
+							categories: [
+								1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+							],
+						},
+					}}
+					type="bar"
+					width="500"
+				/>
+			</Suspense>
 			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
 				<BarChart
 					h="100%"
