@@ -715,23 +715,19 @@ const ActivitySection = () => {
 			<Suspense>
 				<ApexChart
 					series={[
-						{
-							name: "series-1",
-							data: [30, 40, 45, 50, 49, 60, 70, 91],
-						},
+						{ name: "Jan", data: generateData(20, { min: -30, max: 55 }) },
+						{ name: "Feb", data: generateData(20, { min: -30, max: 55 }) },
+						{ name: "Mar", data: generateData(20, { min: -30, max: 55 }) },
+						{ name: "Apr", data: generateData(20, { min: -30, max: 55 }) },
+						{ name: "May", data: generateData(20, { min: -30, max: 55 }) },
+						{ name: "Jun", data: generateData(20, { min: -30, max: 55 }) },
+						{ name: "Jul", data: generateData(20, { min: -30, max: 55 }) },
+						{ name: "Aug", data: generateData(20, { min: -30, max: 55 }) },
+						{ name: "Sep", data: generateData(20, { min: -30, max: 55 }) },
 					]}
-					options={{
-						// chart: {
-						// 	id: "apexchart-example",
-						// },
-						xaxis: {
-							categories: [
-								1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-							],
-						},
-					}}
-					type="bar"
-					width="500"
+					options={{ chart: { toolbar: false } }}
+					type="heatmap"
+					height="85%"
 				/>
 			</Suspense>
 			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
@@ -788,3 +784,16 @@ const DisplayStat = (props: {
 		</Stack>
 	);
 };
+
+function generateData(count: number, yRange: { min: number; max: number }) {
+	let i = 0;
+	const series = [];
+	while (i < count) {
+		const x = (i + 1).toString();
+		const y =
+			Math.floor(Math.random() * (yRange.max - yRange.min + 1)) + yRange.min;
+		series.push({ x: x, y: y });
+		i++;
+	}
+	return series;
+}
