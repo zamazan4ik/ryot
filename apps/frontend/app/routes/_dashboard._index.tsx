@@ -5,6 +5,7 @@ import {
 	Center,
 	Container,
 	Flex,
+	Group,
 	LoadingOverlay,
 	type MantineColor,
 	Paper,
@@ -48,8 +49,8 @@ import {
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
-import { lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Suspense, lazy } from "react";
 import { Fragment, type ReactNode, useMemo } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -207,7 +208,6 @@ export default function Page() {
 						))
 						.with([DashboardElementLot.Activity, false], ([v, _]) => (
 							<Section key={v} lot={v}>
-								<Title>Activity</Title>
 								<ActivitySection />
 							</Section>
 						))
@@ -627,6 +627,10 @@ const ApexChart = lazy(async () => {
 
 const ActivitySection = () => {
 	const { ref, inViewport } = useInViewport();
+	const [chartType, setChartType] = useLocalStorage<"heatmap" | "bar_chart">(
+		"ActivitySectionChartType",
+		"heatmap",
+	);
 	const [timeSpan, setTimeSpan] = useLocalStorage(
 		"ActivitySectionTimeSpan",
 		TimeSpan.Last7Days,
@@ -676,98 +680,159 @@ const ActivitySection = () => {
 	const items = dailyUserActivitiesData?.totalCount || 0;
 
 	return (
-		<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
-			<LoadingOverlay
-				visible={!dailyUserActivitiesData}
-				zIndex={1000}
-				overlayProps={{ radius: "md", blur: 3 }}
-			/>
-			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
-				<DisplayStat
-					label="Total"
-					value={`${new Intl.NumberFormat("en-US", {
-						notation: "compact",
-					}).format(Number(items))} items`}
-				/>
-				<DisplayStat
-					label="Duration"
-					value={
-						dailyUserActivitiesData
-							? humanizeDuration(
-									dayjsLib
-										.duration(dailyUserActivitiesData.totalDuration, "minutes")
-										.asMilliseconds(),
-									{ largest: 2 },
-								)
-							: "N/A"
+		<>
+			<Group justify="space-between">
+				<Title>Activity</Title>
+				<Text
+					c="blue"
+					style={{ cursor: "pointer" }}
+					onClick={() =>
+						setChartType(chartType === "heatmap" ? "bar_chart" : "heatmap")
 					}
+				>
+					{changeCase(chartType)}
+				</Text>
+			</Group>
+			<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
+				<LoadingOverlay
+					visible={!dailyUserActivitiesData}
+					zIndex={1000}
+					overlayProps={{ radius: "md", blur: 3 }}
 				/>
-				<Select
-					label="Time span"
-					defaultValue={timeSpan}
-					labelProps={{ c: "dimmed" }}
-					data={Object.values(TimeSpan)}
-					onChange={(v) => {
-						if (v) setTimeSpan(v as TimeSpan);
-					}}
-				/>
-			</SimpleGrid>
-			<Suspense>
-				<ApexChart
-					series={[
-						{ name: "Jan", data: generateData(20, { min: -30, max: 55 }) },
-						{ name: "Feb", data: generateData(20, { min: -30, max: 55 }) },
-						{ name: "Mar", data: generateData(20, { min: -30, max: 55 }) },
-						{ name: "Apr", data: generateData(20, { min: -30, max: 55 }) },
-						{ name: "May", data: generateData(20, { min: -30, max: 55 }) },
-						{ name: "Jun", data: generateData(20, { min: -30, max: 55 }) },
-						{ name: "Jul", data: generateData(20, { min: -30, max: 55 }) },
-						{ name: "Aug", data: generateData(20, { min: -30, max: 55 }) },
-						{ name: "Sep", data: generateData(20, { min: -30, max: 55 }) },
-					]}
-					options={{ chart: { toolbar: false } }}
-					type="heatmap"
-					height="85%"
-				/>
-			</Suspense>
-			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
-				<BarChart
-					h="100%"
-					ml={-15}
-					withLegend
-					tickLine="x"
-					dataKey="DAY"
-					type="stacked"
-					data={dailyUserActivitiesData.data}
-					legendProps={{ verticalAlign: "bottom" }}
-					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
-						name: lot,
-						color: MediaColors[lot],
-						label: changeCase(lot),
-					}))}
-					xAxisProps={{
-						tickFormatter: (v) =>
-							dayjsLib(v).format(
-								match(dailyUserActivitiesData.groupedBy)
-									.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
-									.with(DailyUserActivitiesResponseGroupedBy.Month, () => "MMM")
-									.with(
-										DailyUserActivitiesResponseGroupedBy.Year,
-										DailyUserActivitiesResponseGroupedBy.Millennium,
-										() => "YYYY",
+				<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
+					<DisplayStat
+						label="Total"
+						value={`${new Intl.NumberFormat("en-US", {
+							notation: "compact",
+						}).format(Number(items))} items`}
+					/>
+					<DisplayStat
+						label="Duration"
+						value={
+							dailyUserActivitiesData
+								? humanizeDuration(
+										dayjsLib
+											.duration(
+												dailyUserActivitiesData.totalDuration,
+												"minutes",
+											)
+											.asMilliseconds(),
+										{ largest: 2 },
 									)
-									.exhaustive(),
-							),
-					}}
-				/>
-			) : (
-				<Paper withBorder h="100%" w="100%" display="flex">
-					<Text m="auto" ta="center">
-						No activity found in the selected period
-					</Text>
-				</Paper>
-			)}
-		</Stack>
+								: "N/A"
+						}
+					/>
+					<Select
+						label="Time span"
+						defaultValue={timeSpan}
+						labelProps={{ c: "dimmed" }}
+						data={Object.values(TimeSpan)}
+						onChange={(v) => {
+							if (v) setTimeSpan(v as TimeSpan);
+						}}
+					/>
+				</SimpleGrid>
+				<Suspense>
+					{dailyUserActivitiesData &&
+					dailyUserActivitiesData.totalCount !== 0 ? (
+						match(chartType)
+							.with("heatmap", () => (
+								<Box mt={-20} h="85%">
+									<ApexChart
+										series={[
+											{
+												name: "Jan",
+												data: generateData(20, { min: -30, max: 55 }),
+											},
+											{
+												name: "Feb",
+												data: generateData(20, { min: -30, max: 55 }),
+											},
+											{
+												name: "Mar",
+												data: generateData(20, { min: -30, max: 55 }),
+											},
+											{
+												name: "Apr",
+												data: generateData(20, { min: -30, max: 55 }),
+											},
+											{
+												name: "May",
+												data: generateData(20, { min: -30, max: 55 }),
+											},
+											{
+												name: "Jun",
+												data: generateData(20, { min: -30, max: 55 }),
+											},
+											{
+												name: "Jul",
+												data: generateData(20, { min: -30, max: 55 }),
+											},
+											{
+												name: "Aug",
+												data: generateData(20, { min: -30, max: 55 }),
+											},
+											{
+												name: "Sep",
+												data: generateData(20, { min: -30, max: 55 }),
+											},
+										]}
+										options={{ chart: { toolbar: false } }}
+										type="heatmap"
+										height="100%"
+									/>
+								</Box>
+							))
+							.with("bar_chart", () => (
+								<BarChart
+									h="100%"
+									ml={-15}
+									withLegend
+									tickLine="x"
+									dataKey="DAY"
+									type="stacked"
+									data={dailyUserActivitiesData.data}
+									legendProps={{ verticalAlign: "bottom" }}
+									series={Object.keys(dailyUserActivitiesData.series).map(
+										(lot) => ({
+											name: lot,
+											color: MediaColors[lot],
+											label: changeCase(lot),
+										}),
+									)}
+									xAxisProps={{
+										tickFormatter: (v) =>
+											dayjsLib(v).format(
+												match(dailyUserActivitiesData.groupedBy)
+													.with(
+														DailyUserActivitiesResponseGroupedBy.Day,
+														() => "MMM D",
+													)
+													.with(
+														DailyUserActivitiesResponseGroupedBy.Month,
+														() => "MMM",
+													)
+													.with(
+														DailyUserActivitiesResponseGroupedBy.Year,
+														DailyUserActivitiesResponseGroupedBy.Millennium,
+														() => "YYYY",
+													)
+													.exhaustive(),
+											),
+									}}
+								/>
+							))
+							.exhaustive()
+					) : (
+						<Paper withBorder h="100%" w="100%" display="flex">
+							<Text m="auto" ta="center">
+								No activity found in the selected period
+							</Text>
+						</Paper>
+					)}
+				</Suspense>
+			</Stack>
+		</>
 	);
 };
 
