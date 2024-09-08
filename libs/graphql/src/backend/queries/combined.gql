@@ -155,6 +155,7 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
       movieCount
       videoGameCount
       visualNovelCount
+      totalCount
     }
   }
 }
