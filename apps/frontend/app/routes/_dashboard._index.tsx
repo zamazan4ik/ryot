@@ -663,11 +663,11 @@ const ActivitySection = () => {
 						[snakeCase(
 							key.replace("Count", "").replace("total", ""),
 						).toUpperCase()]: value,
-					}))
-					.reduce(Object.assign, {});
-				for (const key in data)
+					}));
+				const newData = Object.assign({}, ...data);
+				for (const key in newData)
 					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
-				return data;
+				return newData;
 			});
 			const series = pickBy(trackSeries);
 			return {
