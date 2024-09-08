@@ -71,6 +71,7 @@ import {
 	getDateFromTimeSpan,
 	getLot,
 	getMetadataIcon,
+	queryClient,
 	queryFactory,
 } from "~/lib/generals";
 import {
@@ -654,10 +655,18 @@ const ActivitySection = () => {
 		).queryKey,
 		enabled: inViewport,
 		queryFn: async () => {
-			const { dailyUserActivities: dua } = await clientGqlService.request(
-				DailyUserActivitiesDocument,
-				{ input: { startDate, endDate } },
-			);
+			const { dailyUserActivities: dua } = await queryClient.ensureQueryData({
+				queryKey: [
+					"dashboard",
+					DashboardElementLot.Activity,
+					startDate,
+					endDate,
+				],
+				queryFn: () =>
+					clientGqlService.request(DailyUserActivitiesDocument, {
+						input: { startDate, endDate },
+					}),
+			});
 			const data = await match(chartType)
 				.with("bar_chart", async () => {
 					const trackSeries = mapValues(MediaColors, () => false);
