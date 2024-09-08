@@ -654,14 +654,14 @@ const ActivitySection = () => {
 		).queryKey,
 		enabled: inViewport,
 		queryFn: async () => {
-			const { dailyUserActivities } = await clientGqlService.request(
+			const { dailyUserActivities: dua } = await clientGqlService.request(
 				DailyUserActivitiesDocument,
 				{ input: { startDate, endDate } },
 			);
 			const data = await match(chartType)
 				.with("bar_chart", async () => {
 					const trackSeries = mapValues(MediaColors, () => false);
-					const data = dailyUserActivities.items.map((d) => {
+					const data = dua.items.map((d) => {
 						const data = Object.entries(d)
 							.filter(([_, value]) => value !== 0)
 							.map(([key, value]) => ({
@@ -678,14 +678,14 @@ const ActivitySection = () => {
 					return { __typename: "bar_chart", series, data } as const;
 				})
 				.with("heatmap", async () => {
-					return { __typename: "heatmap", data: dailyUserActivities } as const;
+					return { __typename: "heatmap", data: dua } as const;
 				})
 				.exhaustive();
 			return {
 				data,
-				groupedBy: dailyUserActivities.groupedBy,
-				totalCount: dailyUserActivities.totalCount,
-				totalDuration: dailyUserActivities.totalDuration,
+				groupedBy: dua.groupedBy,
+				totalCount: dua.totalCount,
+				totalDuration: dua.totalDuration,
 			};
 		},
 	});
