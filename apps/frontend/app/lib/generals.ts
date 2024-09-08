@@ -4,6 +4,7 @@ import {
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
 import {
+	type DailyUserActivitiesResponseGroupedBy,
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
@@ -323,8 +324,12 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	coreDetails: () => ({
 		queryKey: ["coreDetails"],
 	}),
-	dailyUserActivities: (startDate?: string, endDate?: string) => ({
-		queryKey: ["dailyUserActivities", startDate, endDate],
+	dailyUserActivities: (
+		startDate?: string,
+		endDate?: string,
+		groupBy?: DailyUserActivitiesResponseGroupedBy,
+	) => ({
+		queryKey: ["dailyUserActivities", startDate, endDate, groupBy],
 	}),
 });
 
