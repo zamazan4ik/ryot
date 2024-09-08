@@ -714,7 +714,6 @@ const ActivitySection = () => {
 					{changeCase(chartType)}
 				</Text>
 			</Group>
-			{/* {JSON.stringify(heatmapData, null, 4)} */}
 			<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
 				<LoadingOverlay
 					visible={!chartData}
@@ -851,6 +850,7 @@ const ActivitySection = () => {
 					)}
 				</Suspense>
 			</Stack>
+			{JSON.stringify(chartData, null, 4)}
 		</>
 	);
 };
