@@ -71,7 +71,6 @@ import {
 	getDateFromTimeSpan,
 	getLot,
 	getMetadataIcon,
-	queryClient,
 	queryFactory,
 } from "~/lib/generals";
 import {
@@ -622,18 +621,6 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 	);
 };
 
-const getDuaData = (startDate?: string, endDate?: string) =>
-	queryClient.ensureQueryData({
-		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
-			.queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(DailyUserActivitiesDocument, {
-					input: { startDate, endDate },
-				})
-				.then((data) => data.dailyUserActivities),
-	});
-
 const ApexChart = lazy(async () => {
 	const module = await import("react-apexcharts");
 	return { default: module.default };
@@ -659,36 +646,50 @@ const ActivitySection = () => {
 			endDate: end.format("YYYY-MM-DD"),
 		};
 	}, [timeSpan]);
-	const { data: barChartData } = useQuery({
-		queryKey: ["barChartData", startDate, endDate],
+	const { data: chartData } = useQuery({
+		queryKey: queryFactory.miscellaneous.dailyUserActivities(
+			chartType,
+			startDate,
+			endDate,
+		).queryKey,
 		enabled: inViewport,
 		queryFn: async () => {
-			const dailyUserActivities = await getDuaData(startDate, endDate);
-			const trackSeries = mapValues(MediaColors, () => false);
-			const data = dailyUserActivities.items.map((d) => {
-				const data = Object.entries(d)
-					.filter(([_, value]) => value !== 0)
-					.map(([key, value]) => ({
-						[snakeCase(
-							key.replace("Count", "").replace("total", ""),
-						).toUpperCase()]: value,
-					}));
-				const newData = Object.assign({}, ...data);
-				for (const key in newData)
-					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
-				return newData;
-			});
-			const series = pickBy(trackSeries);
+			const { dailyUserActivities } = await clientGqlService.request(
+				DailyUserActivitiesDocument,
+				{ input: { startDate, endDate } },
+			);
+			const data = await match(chartType)
+				.with("bar_chart", async () => {
+					const trackSeries = mapValues(MediaColors, () => false);
+					const data = dailyUserActivities.items.map((d) => {
+						const data = Object.entries(d)
+							.filter(([_, value]) => value !== 0)
+							.map(([key, value]) => ({
+								[snakeCase(
+									key.replace("Count", "").replace("total", ""),
+								).toUpperCase()]: value,
+							}));
+						const newData = Object.assign({}, ...data);
+						for (const key in newData)
+							if (isBoolean(trackSeries[key])) trackSeries[key] = true;
+						return newData;
+					});
+					const series = pickBy(trackSeries);
+					return { __typename: "bar_chart", series, data } as const;
+				})
+				.with("heatmap", async () => {
+					return { __typename: "heatmap", data: dailyUserActivities } as const;
+				})
+				.exhaustive();
 			return {
 				data,
-				series,
 				groupedBy: dailyUserActivities.groupedBy,
 				totalCount: dailyUserActivities.totalCount,
 				totalDuration: dailyUserActivities.totalDuration,
 			};
 		},
 	});
-	const items = barChartData?.totalCount || 0;
+	const items = chartData?.totalCount || 0;
 
 	return (
 		<>
@@ -704,9 +705,10 @@ const ActivitySection = () => {
 					{changeCase(chartType)}
 				</Text>
 			</Group>
+			{/* {JSON.stringify(heatmapData, null, 4)} */}
 			<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
 				<LoadingOverlay
-					visible={!barChartData}
+					visible={!chartData}
 					zIndex={1000}
 					overlayProps={{ radius: "md", blur: 3 }}
 				/>
@@ -720,10 +722,10 @@ const ActivitySection = () => {
 					<DisplayStat
 						label="Duration"
 						value={
-							barChartData
+							chartData
 								? humanizeDuration(
 										dayjsLib
-											.duration(barChartData.totalDuration, "minutes")
+											.duration(chartData.totalDuration, "minutes")
 											.asMilliseconds(),
 										{ largest: 2 },
 									)
@@ -741,9 +743,46 @@ const ActivitySection = () => {
 					/>
 				</SimpleGrid>
 				<Suspense>
-					{barChartData && barChartData.totalCount !== 0 ? (
-						match(chartType)
-							.with("heatmap", () => (
+					{chartData && chartData.totalCount !== 0 ? (
+						<>
+							{chartData.data.__typename === "bar_chart" ? (
+								<BarChart
+									h="100%"
+									ml={-15}
+									withLegend
+									tickLine="x"
+									dataKey="DAY"
+									type="stacked"
+									data={chartData.data.data}
+									legendProps={{ verticalAlign: "bottom" }}
+									series={Object.keys(chartData.data.series).map((lot) => ({
+										name: lot,
+										color: MediaColors[lot],
+										label: changeCase(lot),
+									}))}
+									xAxisProps={{
+										tickFormatter: (v) =>
+											dayjsLib(v).format(
+												match(chartData.groupedBy)
+													.with(
+														DailyUserActivitiesResponseGroupedBy.Day,
+														() => "MMM D",
+													)
+													.with(
+														DailyUserActivitiesResponseGroupedBy.Month,
+														() => "MMM",
+													)
+													.with(
+														DailyUserActivitiesResponseGroupedBy.Year,
+														DailyUserActivitiesResponseGroupedBy.Millennium,
+														() => "YYYY",
+													)
+													.exhaustive(),
+											),
+									}}
+								/>
+							) : undefined}
+							{chartData.data.__typename === "heatmap" ? (
 								<Box mt={-20} h="85%">
 									<ApexChart
 										series={[
@@ -792,45 +831,8 @@ const ActivitySection = () => {
 										height="100%"
 									/>
 								</Box>
-							))
-							.with("bar_chart", () => (
-								<BarChart
-									h="100%"
-									ml={-15}
-									withLegend
-									tickLine="x"
-									dataKey="DAY"
-									type="stacked"
-									data={barChartData.data}
-									legendProps={{ verticalAlign: "bottom" }}
-									series={Object.keys(barChartData.series).map((lot) => ({
-										name: lot,
-										color: MediaColors[lot],
-										label: changeCase(lot),
-									}))}
-									xAxisProps={{
-										tickFormatter: (v) =>
-											dayjsLib(v).format(
-												match(barChartData.groupedBy)
-													.with(
-														DailyUserActivitiesResponseGroupedBy.Day,
-														() => "MMM D",
-													)
-													.with(
-														DailyUserActivitiesResponseGroupedBy.Month,
-														() => "MMM",
-													)
-													.with(
-														DailyUserActivitiesResponseGroupedBy.Year,
-														DailyUserActivitiesResponseGroupedBy.Millennium,
-														() => "YYYY",
-													)
-													.exhaustive(),
-											),
-									}}
-								/>
-							))
-							.exhaustive()
+							) : undefined}
+						</>
 					) : (
 						<Paper withBorder h="100%" w="100%" display="flex">
 							<Text m="auto" ta="center">
