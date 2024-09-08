@@ -71,6 +71,7 @@ import {
 	getDateFromTimeSpan,
 	getLot,
 	getMetadataIcon,
+	queryClient,
 	queryFactory,
 } from "~/lib/generals";
 import {
@@ -621,6 +622,18 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 	);
 };
 
+const getDuaData = (startDate?: string, endDate?: string) =>
+	queryClient.ensureQueryData({
+		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
+			.queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(DailyUserActivitiesDocument, {
+					input: { startDate, endDate },
+				})
+				.then((data) => data.dailyUserActivities),
+	});
+
 const ApexChart = lazy(async () => {
 	const module = await import("react-apexcharts");
 	return { default: module.default };
@@ -646,15 +659,11 @@ const ActivitySection = () => {
 			endDate: end.format("YYYY-MM-DD"),
 		};
 	}, [timeSpan]);
-	const { data: dailyUserActivitiesData } = useQuery({
-		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
-			.queryKey,
+	const { data: barChartData } = useQuery({
+		queryKey: ["barChartData", startDate, endDate],
 		enabled: inViewport,
 		queryFn: async () => {
-			const { dailyUserActivities } = await clientGqlService.request(
-				DailyUserActivitiesDocument,
-				{ input: { startDate, endDate } },
-			);
+			const dailyUserActivities = await getDuaData(startDate, endDate);
 			const trackSeries = mapValues(MediaColors, () => false);
 			const data = dailyUserActivities.items.map((d) => {
 				const data = Object.entries(d)
@@ -679,7 +688,7 @@ const ActivitySection = () => {
 			};
 		},
 	});
-	const items = dailyUserActivitiesData?.totalCount || 0;
+	const items = barChartData?.totalCount || 0;
 
 	return (
 		<>
@@ -697,7 +706,7 @@ const ActivitySection = () => {
 			</Group>
 			<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
 				<LoadingOverlay
-					visible={!dailyUserActivitiesData}
+					visible={!barChartData}
 					zIndex={1000}
 					overlayProps={{ radius: "md", blur: 3 }}
 				/>
@@ -711,13 +720,10 @@ const ActivitySection = () => {
 					<DisplayStat
 						label="Duration"
 						value={
-							dailyUserActivitiesData
+							barChartData
 								? humanizeDuration(
 										dayjsLib
-											.duration(
-												dailyUserActivitiesData.totalDuration,
-												"minutes",
-											)
+											.duration(barChartData.totalDuration, "minutes")
 											.asMilliseconds(),
 										{ largest: 2 },
 									)
@@ -735,8 +741,7 @@ const ActivitySection = () => {
 					/>
 				</SimpleGrid>
 				<Suspense>
-					{dailyUserActivitiesData &&
-					dailyUserActivitiesData.totalCount !== 0 ? (
+					{barChartData && barChartData.totalCount !== 0 ? (
 						match(chartType)
 							.with("heatmap", () => (
 								<Box mt={-20} h="85%">
@@ -796,19 +801,17 @@ const ActivitySection = () => {
 									tickLine="x"
 									dataKey="DAY"
 									type="stacked"
-									data={dailyUserActivitiesData.data}
+									data={barChartData.data}
 									legendProps={{ verticalAlign: "bottom" }}
-									series={Object.keys(dailyUserActivitiesData.series).map(
-										(lot) => ({
-											name: lot,
-											color: MediaColors[lot],
-											label: changeCase(lot),
-										}),
-									)}
+									series={Object.keys(barChartData.series).map((lot) => ({
+										name: lot,
+										color: MediaColors[lot],
+										label: changeCase(lot),
+									}))}
 									xAxisProps={{
 										tickFormatter: (v) =>
 											dayjsLib(v).format(
-												match(dailyUserActivitiesData.groupedBy)
+												match(barChartData.groupedBy)
 													.with(
 														DailyUserActivitiesResponseGroupedBy.Day,
 														() => "MMM D",
